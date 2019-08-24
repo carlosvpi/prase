@@ -1,0 +1,25 @@
+{
+  "name": "prase",
+  "version": "1.0.0",
+  "description": "Parsing module",
+  "main": "prase.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/carlosvpi/prase.git"
+  },
+  "keywords": [
+    "parse"
+  ],
+  "author": "Carlos Vazquez",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/carlosvpi/prase/issues"
+  },
+  "homepage": "https://github.com/carlosvpi/prase#readme"
+}
