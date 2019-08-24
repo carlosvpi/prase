@@ -29,7 +29,7 @@ const REQUIRE = (error, rule) => (input, config) => {
     const lineOfError = linesBeforeError.length
     const cursorOfError = indexOfError - linesBeforeError.reduce((acc, line) => acc + line.length, 0)
     const errorPadding = Array(cursorOfError).fill().map(() => ' ').join('')
-    console.error(`linesBeforeError[lineOfError - 1]`)
+    console.error(`${linesBeforeError[lineOfError - 1]}`)
     console.error(`${errorPadding}^`)
     console.error(`At ${lineOfError}:${cursorOfError}`)
     const recoveredInput = recover ? recover(input) : input
@@ -39,10 +39,11 @@ const REQUIRE = (error, rule) => (input, config) => {
   }
 }
 const EXPECT = (expected) => (input, config) => {
-  console.error(`Expected '${expected}'; got '${input.slice(0, 10)}'...`)
+  console.error(`Expected '${expected}'; got '${input.slice(0, 10).split("\n").join("\\n")}'...`)
 }
 
 const CONCAT = (...rules) => (input, config) => {
+  const originalInput = input
   const result = {
     type: 'concat',
     concat: []
@@ -53,7 +54,7 @@ const CONCAT = (...rules) => (input, config) => {
     node = returned[0]
     rest = returned[1]
     if (!node) {
-      break
+      return [null, originalInput]
     } else {
       input = rest
       result.concat.push(node)
@@ -227,7 +228,7 @@ const Conc = (input, config) => DISJUNCTION(
   ),
   CONCAT(
     LITERAL('?'),
-    Special,
+    config.special || (x => x),
     REQUIRE(EXPECT('?'), LITERAL('?')),
     WSs
   )
