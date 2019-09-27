@@ -4,7 +4,7 @@
 // NT     = /[a-zA-Z_][a-zA-Z0-9_]*/
 // Rule   = NT '=' WSs Exp ';' WSs
 // Exp    = Disj { '|' WSs Disj }
-// Disj   = Xcep '-' WSs Xcep
+// Disj   = Xcep ['-' WSs Xcep]
 // Xcep   = Conc { Conc }
 // Conc   = /[0-9]+/ WSs '*' WSs NT
 //        | NT
@@ -22,16 +22,20 @@
 const REQUIRE = (error, rule) => (input, config) => {
   const match = rule(input, config)
   if (!match || !match[0]) {
-    error(input, config)
+    const errorString = error(input, config)
     const { original, recover } = config
-    const indexOfError = original.indexOf(input)
-    const linesBeforeError = original.slice(0, indexOfError).split('\n')
+    const indexOfError = input === ''
+      ? original.length - 1
+      : original.indexOf(input)
+    const linesAtError = original.slice(0, indexOfError + 1).split('\n')
+    const linesBeforeError = linesAtError.slice(0, linesAtError)
     const lineOfError = linesBeforeError.length
-    const cursorOfError = indexOfError - linesBeforeError.reduce((acc, line) => acc + line.length, 0)
+    const cursorOfError = indexOfError - linesBeforeError.reduce((acc, line) => acc + line.length, 0) + 1
     const errorPadding = Array(cursorOfError).fill().map(() => ' ').join('')
-    console.error(`${linesBeforeError[lineOfError - 1]}`)
-    console.error(`${errorPadding}^`)
-    console.error(`At ${lineOfError}:${cursorOfError}`)
+    console.error(`${errorString}
+${original.split('\n')[lineOfError]}
+${errorPadding}^
+At ${lineOfError + 1}:${cursorOfError + 1}`)
     const recoveredInput = recover ? recover(input) : input
     return [null, input]
   } else {
@@ -39,7 +43,10 @@ const REQUIRE = (error, rule) => (input, config) => {
   }
 }
 const EXPECT = (expected) => (input, config) => {
-  console.error(`Expected '${expected}'; got '${input.slice(0, 10).split("\n").join("\\n")}'...`)
+  const got = input === ''
+    ? 'end of input'
+    : `'${input.slice(0, 10).split("\n").join("\\n")}...'`
+  return `Expected '${expected}'; got ${got}`
 }
 
 const CONCAT = (...rules) => (input, config) => {
@@ -236,16 +243,22 @@ const Conc = (input, config) => DISJUNCTION(
 const Xcep = CONCAT(Conc, CLOSURE(Conc))
 const Disj = CONCAT(
   Xcep,
-  LITERAL('-'),
-  REQUIRE(EXPECT('Expression after "-"'), WSs),
-  Xcep
+  OPTION(
+    CONCAT(
+      LITERAL('-'),
+      WSs,
+      REQUIRE(EXPECT('Expression after "-"'), Xcep)
+    )
+  )
 )
 const Exp = CONCAT(
   Disj,
   CLOSURE(
-    LITERAL('|'),
-    WSs,
-    REQUIRE(EXPECT('Expression after "|"'), Disj)
+    CONCAT(
+      LITERAL('|'),
+      WSs,
+      REQUIRE(EXPECT('Expression after "|"'), Disj)
+    )
   )
 )
 const Rule = CONCAT(
@@ -259,10 +272,27 @@ const Rule = CONCAT(
 const EBNF = CLOSURE(Rule)
 
 // type prase = (special: Maybe Rule) -> Input -> Node
-const prase = special => input => {
-  debugger
-  return EBNF(input, { special, original: input, recover: () => {} })
+const prase = ({ special = (x => x), recover = (x => x), axiom = 'S' } = {}) => input => {
+  const [ebnf, rest] = EBNF(input, { special, original: input, recover })
+  if (rest) {
+    console.warning(`There is some trailing data in input: ${rest}`)
+  }
+  const grammar = buildGrammar(ebnf)
+  return grammar[axiom]
 }
+const buildGrammar = ({ closure }) => closure.reduce((acc, rule) => {
+  debugger
+  const { head, body } = getRule(rule)
+  acc[head] = body
+  return acc
+}, {})
+const getRule = ({ concat }) => ({
+  head: concat[0].concat[0].match[0],
+  body: getExp(concat[3].concat)
+})
+const getExp = ([disj,  { closure }]) => DISJUNCTION(getDisj(disj), ...closure.map(getDisj))
+const getDisj = ([xcep, { option }]) => EXCEPTION(getXcep(xcep), getXcep(option))
+const getXcep = ({ })
 
 if (typeof module !== 'undefined') {
   module.exports = prase
